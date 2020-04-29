@@ -1,11 +1,7 @@
-## My Project
+## This repository contains essential files for AWS Blog
 
-TODO: Fill this README out!
-
-Be sure to:
-
-* Change the title in this README
-* Edit your repository description on GitHub
+Use the files in this repository to follow AWS Blog "Complete CI/CD with AWS CodeCommit, CodeBuild, CodeDeploy & CodePipeline"
+{Blog link to be added later}
 
 ## License
 
