@@ -1,0 +1,55 @@
+{
+  "Version": "2012-10-17",
+  "Id": "key-consolepolicy-3",
+  "Statement": [
+    {
+      "Sid": "Allow access through Amazon S3 for all principals in the account that are authorized to use Amazon S3",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "*"
+      },
+      "Action": [
+        "kms:Encrypt",
+        "kms:Decrypt",
+        "kms:ReEncrypt*",
+        "kms:GenerateDataKey*",
+        "kms:DescribeKey"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "kms:CallerAccount": "111111111111",
+          "kms:ViaService": "s3.us-east-1.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Sid": "Enable IAM User Permissions",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::111111111111:root"
+      },
+      "Action": "kms:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "Allow use of the key",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": [
+          "arn:aws:iam::111111111111:role/cicd_codepipeline_service_role",
+          "arn:aws:iam::111111111111:role/cicd_codebuild_service_role",
+          "arn:aws:iam::222222222222:root"
+        ]
+      },
+      "Action": [
+        "kms:Encrypt",
+        "kms:Decrypt",
+        "kms:ReEncrypt*",
+        "kms:GenerateDataKey*",
+        "kms:DescribeKey"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

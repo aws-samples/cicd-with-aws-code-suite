@@ -1,0 +1,29 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowCodeDeployServiceListS3Objects",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject*",
+        "codecommit:ListBranches",
+        "codecommit:ListRepositories"
+      ],
+      "Resource": [
+        "arn:aws:s3:::mywebapp-codepipeline-bucket-us-east-1-111111111111/*"
+      ]
+    },
+    {
+      "Sid": "AllowCodeDeployServiceDeployment",
+      "Effect": "Allow",
+      "Action": [
+        "codedeploy:CreateDeployment",
+        "codedeploy:GetDeployment",
+        "codedeploy:GetDeploymentConfig",
+        "codedeploy:GetApplicationRevision",
+        "codedeploy:RegisterApplicationRevision"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

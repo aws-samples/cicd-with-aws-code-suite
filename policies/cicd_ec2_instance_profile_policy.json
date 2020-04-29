@@ -1,0 +1,29 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowAccesstoKMSKeyToDecryptArtefact",
+      "Effect": "Allow",
+      "Action": [
+        "kms:DescribeKey",
+        "kms:GenerateDataKey*",
+        "kms:Encrypt",
+        "kms:ReEncrypt*",
+        "kms:Decrypt"
+      ],
+      "Resource": [
+        "arn:aws:kms:us-east-1:111111111111:key/82215457-e360-47fc-87dc-a04681c91ce1"
+      ]
+    },
+    {
+      "Sid": "AllowListS3Objects",
+      "Effect": "Allow",
+      "Action": [
+        "s3:Get*"
+      ],
+      "Resource": [
+        "arn:aws:s3:::mywebapp-codepipeline-bucket-us-east-1-111111111111/*"
+      ]
+    }
+  ]
+}

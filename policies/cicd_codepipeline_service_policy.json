@@ -1,0 +1,59 @@
+{
+  "Statement": [
+    {
+      "Sid": "AllowCodeCommitActions",
+      "Action": [
+        "codecommit:CancelUploadArchive",
+        "codecommit:GetBranch",
+        "codecommit:GetCommit",
+        "codecommit:GetUploadArchiveStatus",
+        "codecommit:UploadArchive"
+      ],
+      "Resource": "*",
+      "Effect": "Allow"
+    },
+    {
+      "Sid": "AllowS3ObjectAccessOnCodePipelineBuckets",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:GetObjectVersion",
+        "s3:GetBucketAcl",
+        "s3:GetBucketLocation"
+      ],
+      "Resource": "*",
+      "Effect": "Allow"
+    },
+    {
+      "Sid": "AllowCodeBuildActions",
+      "Action": [
+        "codebuild:BatchGetBuilds",
+        "codebuild:StartBuild"
+      ],
+      "Resource": "*",
+      "Effect": "Allow"
+    },
+    {
+      "Sid": "AllowCodeDeployActions",
+      "Action": [
+        "codedeploy:CreateDeployment",
+        "codedeploy:GetApplication",
+        "codedeploy:GetApplicationRevision",
+        "codedeploy:GetDeployment",
+        "codedeploy:GetDeploymentConfig",
+        "codedeploy:RegisterApplicationRevision"
+      ],
+      "Resource": "*",
+      "Effect": "Allow"
+    },
+    {
+      "Sid": "AllowAssumeRoleCrossAccount",
+      "Effect": "Allow",
+      "Action": "sts:AssumeRole",
+      "Resource": [
+        "arn:aws:iam::664108175011:role/customer_code_suite_codedeploy_crossac_role"
+      ]
+    }
+  ],
+  "Version": "2012-10-17"
+}

@@ -1,0 +1,50 @@
+{
+  "Version": "2012-10-17",
+  "Id": "SSEAndSSLPolicy",
+  "Statement": [
+    {
+      "Sid": "DenyUnEncryptedObjectUploads",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": "s3:PutObject",
+      "Resource": "arn:aws:s3:::mywebapp-codepipeline-bucket-us-east-1-111111111111/*",
+      "Condition": {
+        "StringNotEquals": {
+          "s3:x-amz-server-side-encryption": "aws:kms"
+        }
+      }
+    },
+    {
+      "Sid": "DenyInsecureConnections",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": "s3:*",
+      "Resource": "arn:aws:s3:::mywebapp-codepipeline-bucket-us-east-1-111111111111/*",
+      "Condition": {
+        "Bool": {
+          "aws:SecureTransport": "false"
+        }
+      }
+    },
+    {
+      "Sid": "AllowCrossAccountRWAccessForCodeDeployService",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::222222222222:root"
+      },
+      "Action": [
+        "s3:Get*"
+      ],
+      "Resource": "arn:aws:s3:::mywebapp-codepipeline-bucket-us-east-1-111111111111/*"
+    },
+    {
+      "Sid": "AllowCrossAccountListForCodeDeployService",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::222222222222:root"
+      },
+      "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::mywebapp-codepipeline-bucket-us-east-1-111111111111"
+    }
+  ]
+}

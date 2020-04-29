@@ -1,0 +1,121 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Part of the complete CI/CD using AWS CodeCommit, CodePipeline, CodeBuild and CodeDeploy example. This template is used to setup CodeDeploy App and Deployment Group using which the app is to be installed.",
+  "Metadata": {
+    "AWS::CloudFormation::Interface": {
+      "ParameterGroups": [
+        {
+          "Label": {
+            "default": "CodeDeploy configuration (to create CodeDeploy App & Group):"
+          },
+          "Parameters": [
+            "CodeDeployApp",
+            "CodeDeployGroupProd",
+            "CodeDeployGroupTagKey",
+            "CodeDeployGroupTagValue",
+            "CodeDeployConfigName",
+            "CodeDeployServiceRole"
+          ]
+        }
+      ]
+    }
+  },
+  "Parameters": {
+    "CodeDeployApp": {
+      "Type": "String",
+      "Default": "MyCDWebApp",
+      "Description": "Enter name of the new CodeDeploy App to be created for your Web App."
+    },
+    "CodeDeployGroupProd": {
+      "Type": "String",
+      "Default": "MyCICD-Deployment-Group-Prod",
+      "Description": "Enter name of the new CodeDeploy Deployment Group in Prod account."
+    },
+    "CodeDeployGroupTagKey": {
+      "Type": "String",
+      "Default": "Application",
+      "Description": "Enter Tag Key that will be used by CodeDeploy to identify the existing EC2 fleet to be used by the Deployment Group."
+    },
+    "CodeDeployGroupTagValue": {
+      "Type": "String",
+      "Default": "MyWebApp",
+      "Description": "Enter Tag Value that will be used by CodeDeploy to identify the existing EC2 fleet to be used by the Deployment Group."
+    },
+    "CodeDeployConfigName": {
+      "Type": "String",
+      "Default": "CodeDeployDefault.OneAtATime",
+      "AllowedValues": [
+        "CodeDeployDefault.OneAtATime",
+        "CodeDeployDefault.HalfAtATime",
+        "CodeDeployDefault.AllAtOnce"
+      ],
+      "Description": "Enter desired Code Deploy Config Name. Default is: CodeDeployDefault.OneAtATime."
+    },
+    "CodeDeployServiceRole": {
+      "Type": "String",
+      "Description": "ARN of an existing IAM Service Role to be associated with CodeDeploy in order to deploy web app. Ex: arn:aws:iam::222222222222:role/cicd_codedeploy_service_role",
+      "Default": "",
+      "AllowedPattern": "^arn:aws:iam:.*$|^$"
+    }
+  },
+  "Resources": {
+    "MyCodeDeployApp": {
+      "Type": "AWS::CodeDeploy::Application",
+      "Properties": {
+        "ApplicationName": {
+          "Ref": "CodeDeployApp"
+        }
+      }
+    },
+    "ProdDeploymentGroup": {
+      "Type": "AWS::CodeDeploy::DeploymentGroup",
+      "Properties": {
+        "ApplicationName": {
+          "Ref": "MyCodeDeployApp"
+        },
+        "DeploymentGroupName": {
+          "Ref": "CodeDeployGroupProd"
+        },
+        "DeploymentConfigName": {
+          "Ref": "CodeDeployConfigName"
+        },
+        "AutoRollbackConfiguration": {
+          "Enabled": true,
+          "Events": [
+            "DEPLOYMENT_FAILURE",
+            "DEPLOYMENT_STOP_ON_ALARM",
+            "DEPLOYMENT_STOP_ON_REQUEST"
+          ]
+        },
+        "ServiceRoleArn": {
+          "Ref": "CodeDeployServiceRole"
+        },
+        "Ec2TagFilters": [
+          {
+            "Key": {
+              "Ref": "CodeDeployGroupTagKey"
+            },
+            "Value": {
+              "Ref": "CodeDeployGroupTagValue"
+            },
+            "Type": "KEY_AND_VALUE"
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "MyCodeDeployApp": {
+      "Description": "My CodeDeploy App",
+      "Value": {
+        "Ref": "MyCodeDeployApp"
+      }
+    },
+    "MyCodeDeployDeploymentGroup": {
+      "Description": "My CodeDeploy Deployment Group",
+      "Value": {
+        "Ref": "ProdDeploymentGroup"
+      }
+    }
+  }
+}

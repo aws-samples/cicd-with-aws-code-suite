@@ -1,0 +1,632 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Create complete CI/CD using AWS CodeCommit, CodePipeline, CodeBuild and CodeDeploy - Example",
+  "Metadata": {
+    "AWS::CloudFormation::Interface": {
+      "ParameterGroups": [
+        {
+          "Label": {
+            "default": "CodeCommit configuration (to build CodeCommit repository):"
+          },
+          "Parameters": [
+            "CodeCommitWebAppRepo",
+            "CodeCommitMainBranchName"
+          ]
+        },
+        {
+          "Label": {
+            "default": "CodeBuild configuration (to build CodeBuild environment):"
+          },
+          "Parameters": [
+            "CodeBuildProjectName",
+            "CodeBuildServiceRole"
+          ]
+        },
+        {
+          "Label": {
+            "default": "CodeDeploy configuration (to create CodeDeploy App & Group):"
+          },
+          "Parameters": [
+            "CodeDeployApp",
+            "CodeDeployGroupDev",
+            "CodeDeployGroupProd",
+            "CodeDeployGroupTagKey",
+            "CodeDeployGroupTagValue",
+            "CodeDeployConfigName",
+            "CodeDeployServiceRole"
+          ]
+        },
+        {
+          "Label": {
+            "default": "CodePipeline configuration (to build a 4 stage CodePipeline):"
+          },
+          "Parameters": [
+            "CodePipelineName",
+            "CodePipelineArtifactS3Bucket",
+            "CodePipelineServiceRole",
+            "CodePipelineCWEventTriggerRole",
+            "CodePipeRoleXAProd"
+          ]
+        }
+      ]
+    }
+  },
+  "Parameters": {
+    "CodeCommitWebAppRepo": {
+      "Type": "String",
+      "Default": "MyWebAppRepo",
+      "Description": "Enter name of the new CodeCommit Repo for your Web App."
+    },
+    "CodeCommitMainBranchName": {
+      "Type": "String",
+      "Default": "master",
+      "Description": "Enter main branch name on your CodeCommit repository. Default is master."
+    },
+    "CodeBuildProjectName": {
+      "Type": "String",
+      "Default": "MyCBWebAppProject",
+      "Description": "Enter name of the new CodeBuild environment."
+    },
+    "CodeBuildServiceRole": {
+      "Type": "String",
+      "Description": "ARN of an existing IAM Service Role to be associated with CodeBuild in order to build web app code. Ex: arn:aws:iam::111111111111:role/cicd_codebuild_service_role",
+      "Default": "",
+      "AllowedPattern": "^arn:aws:iam:.*$|^$"
+    },
+    "CodeDeployApp": {
+      "Type": "String",
+      "Default": "MyCDWebApp",
+      "Description": "Enter name of the new CodeDeploy App to be created for your Web App."
+    },
+    "CodeDeployGroupDev": {
+      "Type": "String",
+      "Default": "MyCICD-Deployment-Group-Dev",
+      "Description": "Enter name of the new CodeDeploy Deployment Group to be created in Dev account."
+    },
+    "CodeDeployGroupProd": {
+      "Type": "String",
+      "Default": "MyCICD-Deployment-Group-Prod",
+      "Description": "Enter name an existing CodeDeploy Deployment Group in Prod account."
+    },
+    "CodeDeployGroupTagKey": {
+      "Type": "String",
+      "Default": "Application",
+      "Description": "Enter Tag Key that will be used by CodeDeploy to identify the existing EC2 fleet to be used by the Deployment Group."
+    },
+    "CodeDeployGroupTagValue": {
+      "Type": "String",
+      "Default": "MyWebApp",
+      "Description": "Enter Tag Value that will be used by CodeDeploy to identify the existing EC2 fleet to be used by the Deployment Group."
+    },
+    "CodeDeployConfigName": {
+      "Type": "String",
+      "Default": "CodeDeployDefault.OneAtATime",
+      "AllowedValues": [
+        "CodeDeployDefault.OneAtATime",
+        "CodeDeployDefault.HalfAtATime",
+        "CodeDeployDefault.AllAtOnce"
+      ],
+      "Description": "Enter desired Code Deploy Config Name. Default is: CodeDeployDefault.OneAtATime."
+    },
+    "CodeDeployServiceRole": {
+      "Type": "String",
+      "Description": "ARN of an existing IAM Service Role to be associated with CodeDeploy in order to deploy web app. Ex: arn:aws:iam::111111111111:role/cicd_codedeploy_service_role",
+      "Default": "",
+      "AllowedPattern": "^arn:aws:iam:.*$|^$"
+    },
+    "CodePipelineName": {
+      "Type": "String",
+      "Default": "MyWebAppPipeline",
+      "Description": "Enter name of the new CodePipeline to be created for your Web App."
+    },
+    "CodePipelineArtifactS3Bucket": {
+      "Type": "String",
+      "Default": "mywebapp-codepipeline-bucket-us-east-1-111111111111",
+      "Description": "Enter name of the new Amazon S3 bucket to be created where artifacts for the pipeline are stored for this web app."
+    },
+    "CodePipelineServiceRole": {
+      "Type": "String",
+      "Description": "ARN of an existing IAM Service Role to be associated with CodePipeline in order to deploy web app. Ex: arn:aws:iam::111111111111:role/cicd_codepipeline_service_role",
+      "Default": "",
+      "AllowedPattern": "^arn:aws:iam:.*$|^$"
+    },
+    "CodePipelineCWEventTriggerRole": {
+      "Type": "String",
+      "Description": "ARN of an existing IAM role used to trigger the Code Pipeline 'named' above upon a code push to the CodeCommit repo. Ex: arn:aws:iam::111111111111:role/cicd_codepipeline_trigger_cwe_role",
+      "Default": "",
+      "AllowedPattern": "^arn:aws:iam:.*$|^$"
+    },
+    "CodePipeRoleXAProd": {
+      "Type": "String",
+      "Description": "ARN of an existing IAM role in the cross-account which is to be assumed by CodePipeline in order to deploy the app. Ex: arn:aws:iam::222222222222:role/cicd_codepipeline_cross_ac_role",
+      "Default": "",
+      "AllowedPattern": "^arn:aws:iam:.*$|^$"
+    }
+  },
+  "Resources": {
+    "myKMSKey": {
+      "Type": "AWS::KMS::Key",
+      "Properties": {
+        "Description": "An example of symmetric CMK",
+        "KeyPolicy": {
+          "Version": "2012-10-17",
+          "Id": "kms-key-policy",
+          "Statement": [
+            {
+              "Sid": "Allow access through Amazon S3 for all principals in the account that are authorized to use Amazon S3",
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": "*"
+              },
+              "Action": [
+                "kms:Encrypt",
+                "kms:Decrypt",
+                "kms:ReEncrypt*",
+                "kms:GenerateDataKey*",
+                "kms:DescribeKey"
+              ],
+              "Resource": "*",
+              "Condition": {
+                "StringEquals": {
+                  "kms:CallerAccount": {
+                    "Fn::Sub": "${AWS::AccountId}"
+                  },
+                  "kms:ViaService": {
+                    "Fn::Sub": "s3.${AWS::Region}.amazonaws.com"
+                  }
+                }
+              }
+            },
+            {
+              "Sid": "Enable IAM User Permissions",
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": {
+                  "Fn::Sub": "arn:aws:iam::${AWS::AccountId}:root"
+                }
+              },
+              "Action": "kms:*",
+              "Resource": "*"
+            },
+            {
+              "Sid": "Allow use of the key",
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": [
+                  {
+                    "Fn::Sub": "${CodePipelineServiceRole}"
+                  },
+                  {
+                    "Fn::Sub": "${CodeBuildServiceRole}"
+                  },
+                  "arn:aws:iam::222222222222:root"
+                ]
+              },
+              "Action": [
+                "kms:Encrypt",
+                "kms:Decrypt",
+                "kms:ReEncrypt*",
+                "kms:GenerateDataKey*",
+                "kms:DescribeKey"
+              ],
+              "Resource": "*"
+            }
+          ]
+        }
+      }
+    },
+    "myKMSKeyAlias": {
+      "Type": "AWS::KMS::Alias",
+      "Properties": {
+        "AliasName": "alias/MyCICDKey",
+        "TargetKeyId": {
+          "Ref": "myKMSKey"
+        }
+      }
+    },
+    "myS3Bucket": {
+      "Type": "AWS::S3::Bucket",
+      "DeletionPolicy": "Retain",
+      "Properties": {
+        "BucketName": {
+          "Ref": "CodePipelineArtifactS3Bucket"
+        }
+      }
+    },
+    "myS3BucketPolicy": {
+      "Type": "AWS::S3::BucketPolicy",
+      "Properties": {
+        "Bucket": {
+          "Ref": "myS3Bucket"
+        },
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Sid": "DenyUnEncryptedObjectUploads",
+              "Effect": "Deny",
+              "Principal": "*",
+              "Action": "s3:PutObject",
+              "Resource": {
+                "Fn::Sub": "arn:aws:s3:::${CodePipelineArtifactS3Bucket}/*"
+              },
+              "Condition": {
+                "StringNotEquals": {
+                  "s3:x-amz-server-side-encryption": "aws:kms"
+                }
+              }
+            },
+            {
+              "Sid": "DenyInsecureConnections",
+              "Effect": "Deny",
+              "Principal": "*",
+              "Action": "s3:*",
+              "Resource": {
+                "Fn::Sub": "arn:aws:s3:::${CodePipelineArtifactS3Bucket}/*"
+              },
+              "Condition": {
+                "Bool": {
+                  "aws:SecureTransport": "false"
+                }
+              }
+            },
+            {
+              "Sid": "AllowCrossAccountRWAccessForCodeDeployService",
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": "arn:aws:iam::222222222222:root"
+              },
+              "Action": [
+                "s3:Get*"
+              ],
+              "Resource": {
+                "Fn::Sub": "arn:aws:s3:::${CodePipelineArtifactS3Bucket}/*"
+              }
+            },
+            {
+              "Sid": "AllowCrossAccountListForCodeDeployService",
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": "arn:aws:iam::222222222222:root"
+              },
+              "Action": "s3:ListBucket",
+              "Resource": {
+                "Fn::Sub": "arn:aws:s3:::${CodePipelineArtifactS3Bucket}"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "MyWebAppRepo": {
+      "Type": "AWS::CodeCommit::Repository",
+      "Properties": {
+        "RepositoryName": {
+          "Ref": "CodeCommitWebAppRepo"
+        },
+        "RepositoryDescription": "A sample java spring boot application"
+      }
+    },
+    "CodeBuildProject": {
+      "Type": "AWS::CodeBuild::Project",
+      "DependsOn": "MyWebAppRepo",
+      "Properties": {
+        "Name": {
+          "Ref": "CodeBuildProjectName"
+        },
+        "Description": "This is sample web app project",
+        "ServiceRole": {
+          "Ref": "CodeBuildServiceRole"
+        },
+        "Artifacts": {
+          "Type": "S3",
+          "Location": {
+            "Ref": "CodePipelineArtifactS3Bucket"
+          }
+        },
+        "Environment": {
+          "Type": "LINUX_CONTAINER",
+          "ComputeType": "BUILD_GENERAL1_SMALL",
+          "Image": "aws/codebuild/standard:3.0-19.11.26",
+          "EnvironmentVariables": []
+        },
+        "Source": {
+          "Location": {
+            "Fn::GetAtt": [
+              "MyWebAppRepo",
+              "CloneUrlHttp"
+            ]
+          },
+          "Type": "CODECOMMIT"
+        },
+        "TimeoutInMinutes": 30,
+        "Tags": []
+      }
+    },
+    "MyCodeDeployApp": {
+      "Type": "AWS::CodeDeploy::Application",
+      "Properties": {
+        "ApplicationName": {
+          "Ref": "CodeDeployApp"
+        }
+      }
+    },
+    "DevDeploymentGroup": {
+      "Type": "AWS::CodeDeploy::DeploymentGroup",
+      "Properties": {
+        "ApplicationName": {
+          "Ref": "MyCodeDeployApp"
+        },
+        "DeploymentGroupName": {
+          "Ref": "CodeDeployGroupDev"
+        },
+        "DeploymentConfigName": {
+          "Ref": "CodeDeployConfigName"
+        },
+        "AutoRollbackConfiguration": {
+          "Enabled": true,
+          "Events": [
+            "DEPLOYMENT_FAILURE",
+            "DEPLOYMENT_STOP_ON_ALARM",
+            "DEPLOYMENT_STOP_ON_REQUEST"
+          ]
+        },
+        "ServiceRoleArn": {
+          "Ref": "CodeDeployServiceRole"
+        },
+        "Ec2TagFilters": [
+          {
+            "Key": {
+              "Ref": "CodeDeployGroupTagKey"
+            },
+            "Value": {
+              "Ref": "CodeDeployGroupTagValue"
+            },
+            "Type": "KEY_AND_VALUE"
+          }
+        ]
+      }
+    },
+    "MyCodePipeline": {
+      "Type": "AWS::CodePipeline::Pipeline",
+      "Properties": {
+        "Name": {
+          "Ref": "CodePipelineName"
+        },
+        "RoleArn": {
+          "Ref": "CodePipelineServiceRole"
+        },
+        "Stages": [
+          {
+            "Name": "Source",
+            "Actions": [
+              {
+                "Name": "ApplicationSource",
+                "InputArtifacts": [],
+                "ActionTypeId": {
+                  "Version": "1",
+                  "Category": "Source",
+                  "Owner": "AWS",
+                  "Provider": "CodeCommit"
+                },
+                "OutputArtifacts": [
+                  {
+                    "Name": "WebAppRepo-SourceArtifact"
+                  }
+                ],
+                "Configuration": {
+                  "RepositoryName": {
+                    "Ref": "CodeCommitWebAppRepo"
+                  },
+                  "BranchName": {
+                    "Ref": "CodeCommitMainBranchName"
+                  },
+                  "PollForSourceChanges": false
+                },
+                "RunOrder": 1
+              }
+            ]
+          },
+          {
+            "Name": "Build",
+            "Actions": [
+              {
+                "Name": "ApplicationBuild",
+                "InputArtifacts": [
+                  {
+                    "Name": "WebAppRepo-SourceArtifact"
+                  }
+                ],
+                "ActionTypeId": {
+                  "Category": "Build",
+                  "Owner": "AWS",
+                  "Version": "1",
+                  "Provider": "CodeBuild"
+                },
+                "OutputArtifacts": [
+                  {
+                    "Name": "WebAppRepo-BuiltArtifact"
+                  }
+                ],
+                "Configuration": {
+                  "ProjectName": {
+                    "Ref": "CodeBuildProject"
+                  }
+                },
+                "RunOrder": 2
+              }
+            ]
+          },
+          {
+            "Name": "DevelopDeploy",
+            "Actions": [
+              {
+                "Name": "DevelopDeploy",
+                "InputArtifacts": [
+                  {
+                    "Name": "WebAppRepo-BuiltArtifact"
+                  }
+                ],
+                "ActionTypeId": {
+                  "Category": "Deploy",
+                  "Owner": "AWS",
+                  "Version": "1",
+                  "Provider": "CodeDeploy"
+                },
+                "Configuration": {
+                  "ApplicationName": {
+                    "Ref": "CodeDeployApp"
+                  },
+                  "DeploymentGroupName": {
+                    "Ref": "CodeDeployGroupDev"
+                  }
+                },
+                "RunOrder": 3
+              }
+            ]
+          },
+          {
+            "Name": "ProdDeploy",
+            "Actions": [
+              {
+                "Name": "ProdExternalDeploy",
+                "InputArtifacts": [
+                  {
+                    "Name": "WebAppRepo-BuiltArtifact"
+                  }
+                ],
+                "ActionTypeId": {
+                  "Category": "Deploy",
+                  "Owner": "AWS",
+                  "Version": "1",
+                  "Provider": "CodeDeploy"
+                },
+                "Configuration": {
+                  "ApplicationName": {
+                    "Ref": "CodeDeployApp"
+                  },
+                  "DeploymentGroupName": {
+                    "Ref": "CodeDeployGroupProd"
+                  }
+                },
+                "RoleArn": {
+                  "Ref": "CodePipeRoleXAProd"
+                },
+                "RunOrder": 4
+              }
+            ]
+          }
+        ],
+        "ArtifactStore": {
+          "Type": "S3",
+          "Location": {
+            "Ref": "CodePipelineArtifactS3Bucket"
+          },
+          "EncryptionKey": {
+            "Id": {
+              "Fn::GetAtt": [
+                "myKMSKey",
+                "Arn"
+              ]
+            },
+            "Type": "KMS"
+          }
+        }
+      }
+    },
+    "CloudWatchEventRuleMasterPipeline": {
+      "Type": "AWS::Events::Rule",
+      "Properties": {
+        "Name": {
+          "Ref": "CodePipelineName"
+        },
+        "EventPattern": {
+          "source": [
+            "aws.codecommit"
+          ],
+          "detail-type": [
+            "CodeCommit Repository State Change"
+          ],
+          "resources": [
+            {
+              "Fn::Join": [
+                "",
+                [
+                  "arn:aws:codecommit:",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  ":",
+                  {
+                    "Ref": "AWS::AccountId"
+                  },
+                  ":",
+                  {
+                    "Ref": "CodeCommitWebAppRepo"
+                  }
+                ]
+              ]
+            }
+          ],
+          "detail": {
+            "event": [
+              "referenceCreated",
+              "referenceUpdated"
+            ],
+            "referenceType": [
+              "branch"
+            ],
+            "referenceName": [
+              {
+                "Ref": "CodeCommitMainBranchName"
+              }
+            ]
+          }
+        },
+        "Targets": [
+          {
+            "Arn": {
+              "Fn::Join": [
+                "",
+                [
+                  "arn:aws:codepipeline:",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  ":",
+                  {
+                    "Ref": "AWS::AccountId"
+                  },
+                  ":",
+                  {
+                    "Ref": "CodePipelineName"
+                  }
+                ]
+              ]
+            },
+            "RoleArn": {
+              "Ref": "CodePipelineCWEventTriggerRole"
+            },
+            "Id": "codepipeline-AppPipeline"
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "MyCodePipelineName": {
+      "Description": "My CI/CD Pipeline",
+      "Value": {
+        "Ref": "MyCodePipeline"
+      }
+    },
+    "MyCodeCommitHttpUrl": {
+      "Description": "My CodeCommit Repository Http Url",
+      "Value": {
+        "Fn::GetAtt": [
+          "MyWebAppRepo",
+          "CloneUrlHttp"
+        ]
+      }
+    }
+  }
+}
