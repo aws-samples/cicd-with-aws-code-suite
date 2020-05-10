@@ -71,7 +71,7 @@
       "Type": "String",
       "Description": "ARN of an existing IAM Service Role to be associated with CodeBuild in order to build web app code. Ex: arn:aws:iam::111111111111:role/cicd_codebuild_service_role",
       "Default": "",
-      "AllowedPattern": "^arn:aws:iam:.*$|^$"
+      "AllowedPattern": "^arn:aws.*:iam:.*$|^$"
     },
     "CodeDeployApp": {
       "Type": "String",
@@ -112,7 +112,7 @@
       "Type": "String",
       "Description": "ARN of an existing IAM Service Role to be associated with CodeDeploy in order to deploy web app. Ex: arn:aws:iam::111111111111:role/cicd_codedeploy_service_role",
       "Default": "",
-      "AllowedPattern": "^arn:aws:iam:.*$|^$"
+      "AllowedPattern": "^arn:aws.*:iam:.*$|^$"
     },
     "CodePipelineName": {
       "Type": "String",
@@ -121,26 +121,26 @@
     },
     "CodePipelineArtifactS3Bucket": {
       "Type": "String",
-      "Default": "mywebapp-codepipeline-bucket-us-east-1-111111111111",
-      "Description": "Enter name of the new Amazon S3 bucket to be created where artifacts for the pipeline are stored for this web app."
+      "Default": "",
+      "Description": "Enter name of the new Amazon S3 bucket to be created where artifacts for the pipeline are stored for this web app. Ex: mywebapp-codepipeline-bucket-us-east-1-111111111111. "
     },
     "CodePipelineServiceRole": {
       "Type": "String",
       "Description": "ARN of an existing IAM Service Role to be associated with CodePipeline in order to deploy web app. Ex: arn:aws:iam::111111111111:role/cicd_codepipeline_service_role",
       "Default": "",
-      "AllowedPattern": "^arn:aws:iam:.*$|^$"
+      "AllowedPattern": "^arn:aws.*:iam:.*$|^$"
     },
     "CodePipelineCWEventTriggerRole": {
       "Type": "String",
       "Description": "ARN of an existing IAM role used to trigger the Code Pipeline 'named' above upon a code push to the CodeCommit repo. Ex: arn:aws:iam::111111111111:role/cicd_codepipeline_trigger_cwe_role",
       "Default": "",
-      "AllowedPattern": "^arn:aws:iam:.*$|^$"
+      "AllowedPattern": "^arn:aws.*:iam:.*$|^$"
     },
     "CodePipeRoleXAProd": {
       "Type": "String",
       "Description": "ARN of an existing IAM role in the cross-account which is to be assumed by CodePipeline in order to deploy the app. Ex: arn:aws:iam::222222222222:role/cicd_codepipeline_cross_ac_role",
       "Default": "",
-      "AllowedPattern": "^arn:aws:iam:.*$|^$"
+      "AllowedPattern": "^arn:aws.*:iam:.*$|^$"
     }
   },
   "Resources": {
@@ -182,7 +182,7 @@
               "Effect": "Allow",
               "Principal": {
                 "AWS": {
-                  "Fn::Sub": "arn:aws:iam::${AWS::AccountId}:root"
+                  "Fn::Sub": "arn:${AWS::Partition}:iam::${AWS::AccountId}:root"
                 }
               },
               "Action": "kms:*",
@@ -247,11 +247,13 @@
               "Principal": "*",
               "Action": "s3:PutObject",
               "Resource": {
-                "Fn::Sub": "arn:aws:s3:::${CodePipelineArtifactS3Bucket}/*"
+                "Fn::Sub": "arn:${AWS::Partition}:s3:::${CodePipelineArtifactS3Bucket}/*"
               },
               "Condition": {
                 "StringNotEquals": {
-                  "s3:x-amz-server-side-encryption": "aws:kms"
+                  "s3:x-amz-server-side-encryption": {
+                    "Fn::Sub": "${AWS::Partition}:kms"
+                  }
                 }
               }
             },
@@ -261,7 +263,7 @@
               "Principal": "*",
               "Action": "s3:*",
               "Resource": {
-                "Fn::Sub": "arn:aws:s3:::${CodePipelineArtifactS3Bucket}/*"
+                "Fn::Sub": "arn:${AWS::Partition}:s3:::${CodePipelineArtifactS3Bucket}/*"
               },
               "Condition": {
                 "Bool": {
@@ -279,7 +281,7 @@
                 "s3:Get*"
               ],
               "Resource": {
-                "Fn::Sub": "arn:aws:s3:::${CodePipelineArtifactS3Bucket}/*"
+                "Fn::Sub": "arn:${AWS::Partition}:s3:::${CodePipelineArtifactS3Bucket}/*"
               }
             },
             {
@@ -290,7 +292,7 @@
               },
               "Action": "s3:ListBucket",
               "Resource": {
-                "Fn::Sub": "arn:aws:s3:::${CodePipelineArtifactS3Bucket}"
+                "Fn::Sub": "arn:${AWS::Partition}:s3:::${CodePipelineArtifactS3Bucket}"
               }
             }
           ]
@@ -339,7 +341,12 @@
           "Type": "CODECOMMIT"
         },
         "TimeoutInMinutes": 30,
-        "Tags": []
+        "Tags": [
+          {
+            "Key" : "Role",
+            "Value" : "MyJavaApp"
+         }
+        ]
       }
     },
     "MyCodeDeployApp": {
@@ -401,7 +408,6 @@
             "Actions": [
               {
                 "Name": "ApplicationSource",
-                "InputArtifacts": [],
                 "ActionTypeId": {
                   "Version": "1",
                   "Category": "Source",
@@ -551,7 +557,11 @@
               "Fn::Join": [
                 "",
                 [
-                  "arn:aws:codecommit:",
+                  "arn:",
+                  {
+                    "Ref": "AWS::Partition"
+                  },
+                  ":codecommit:",
                   {
                     "Ref": "AWS::Region"
                   },
@@ -588,7 +598,11 @@
               "Fn::Join": [
                 "",
                 [
-                  "arn:aws:codepipeline:",
+                  "arn:",
+                  {
+                    "Ref": "AWS::Partition"
+                  },
+                  ":codepipeline:",
                   {
                     "Ref": "AWS::Region"
                   },
