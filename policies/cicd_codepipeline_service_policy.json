@@ -51,7 +51,7 @@
       "Effect": "Allow",
       "Action": "sts:AssumeRole",
       "Resource": [
-        "arn:aws:iam::664108175011:role/customer_code_suite_codedeploy_crossac_role"
+        "arn:aws:iam::222222222222:role/cicd_codepipeline_cross_ac_role"
       ]
     }
   ],
