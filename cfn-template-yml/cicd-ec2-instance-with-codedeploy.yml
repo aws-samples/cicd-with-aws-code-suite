@@ -1,0 +1,91 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Part of the complete CI/CD using AWS CodeCommit, CodePipeline, CodeBuild and
+  CodeDeploy blog. This template can be used to create a new EC2 instance with
+  an AWS CodeDeploy agent. This instance will be used install the sample Java
+  app that is built and deployed via AWS CodePipeline
+Parameters:
+  AMI:
+    Type: 'AWS::EC2::Image::Id'
+    Default: ''
+    Description: >-
+      Enter name of the Linux AMI in your region, which will be used to create
+      EC2 instance with AWS CodeDeploy agent. Example: ami-0f96495a064477ffb
+  InstanceSubnetId:
+    Type: 'AWS::EC2::Subnet::Id'
+    Default: ''
+    Description: 'The VPC Subnet ID to deploy this instances into. Ex: subnet-abc123453abc'
+  Ec2SshKeyPairName:
+    Type: String
+    Default: AWS-DS-KP
+    Description: 'Name of an existing SSH KeyPair. Example: myEc2KeyPair'
+  Ec2IamInstanceProfile:
+    Type: String
+    Default: cicd_ec2_instance_profile
+    Description: >-
+      Name of an existing EC2 instance profile. Example:
+      cicd_ec2_instance_profile
+Resources:
+  SampleLinuxInstance:
+    Type: 'AWS::EC2::Instance'
+    Metadata:
+      'AWS::CloudFormation::Init':
+        config:
+          packages:
+            yum:
+              ruby: []
+          files:
+            /home/ec2-user/install:
+              source: !Join 
+                - ''
+                - - 'https://aws-codedeploy-'
+                  - !Ref 'AWS::Region'
+                  - .s3.amazonaws.com/latest/install
+              mode: '000755'
+          commands:
+            00-install-agent:
+              command: ./install auto
+              cwd: /home/ec2-user/
+            01-cfn-signal:
+              command: !Join 
+                - ''
+                - - '/opt/aws/bin/cfn-signal -e 0 --stack '
+                  - !Ref 'AWS::StackName'
+                  - ' --resource SampleLinuxInstance --region '
+                  - !Ref 'AWS::Region'
+    CreationPolicy:
+      ResourceSignal:
+        Count: '1'
+        Timeout: PT5M
+    Properties:
+      InstanceType: t2.micro
+      ImageId: !Ref AMI
+      KeyName: !Ref Ec2SshKeyPairName
+      SubnetId: !Ref InstanceSubnetId
+      IamInstanceProfile: !Ref Ec2IamInstanceProfile
+      UserData: !Base64 
+        'Fn::Join':
+          - ''
+          - - |
+              #!/bin/bash
+            - |
+              yum -y update
+            - |
+              yum -y install cfn-bootstrap
+            - /opt/aws/bin/cfn-init -v
+            - ' --stack '
+            - !Ref 'AWS::StackName'
+            - ' --resource SampleLinuxInstance'
+            - ' --region '
+            - !Ref 'AWS::Region'
+            - |+
+
+      Tags:
+        - Key: Name
+          Value: MyCicdBlogWebApp
+        - Key: Application
+          Value: MyWebApp
+Outputs:
+  MyCodeDeployApp:
+    Description: My EC2 Instance
+    Value: !Ref SampleLinuxInstance
